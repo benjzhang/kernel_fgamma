@@ -64,10 +64,10 @@ def loss(X_, Y_, alpha, lamda):
     
 def grad_loss(X_, Y_, alpha):
     n = X_.shape[0]
-    interaction = np.sum(k(X_, Y_), axis=1)/(n*p.lamda)
-    potential = k(X_, X_) @ alpha/(2*p.lamda)
-    internal = f_prime(n*alpha)
-    print(np.linalg.norm(interaction), np.linalg.norm(potential), np.linalg.norm(internal))
+    K_XY = np.round(np.linalg.norm(np.sum(k(X_, Y_), axis=1)/(n*p.lamda)), 4)
+    K_XX = np.round(np.linalg.norm(k(X_, X_) @ alpha/(2*p.lamda)), 4)
+    f_prime_n_alpha = np.round(np.linalg.norm(f_prime(n*alpha)), 4)
+    print(r"gradient loss: norm of $K_{XY}, K_{XX}, f'(n \alpha)$ :", K_XY, K_XX, f_prime_n_alpha)
     return f_prime(n*alpha) - np.sum(k(X_, Y_), axis=1)/(n*p.lamda) + k(X_, X_) @ alpha/(2*p.lamda)
     
 def hess_loss(X_, Y_, alpha):
@@ -109,7 +109,7 @@ def grad_loss_first_variation(y, X_, Y_, alpha, lamda):
     return 1/lamda * (1/n * np.sum(grad_k(y, Y_), axis=2) - grad_k(y, X_) @ alpha)
 
 # ODE solver setting
-from util.transport_particles import calc_vectorfield, solve_ode
+#from util.transport_particles import calc_vectorfield, solve_ode
 dPs = []
 if p.ode_solver in ['forward_euler', 'AB2', 'AB3', 'AB4', 'AB5']:
     aux_params = []
@@ -117,8 +117,8 @@ else:
     aux_params = {'parameters': parameters, 'phi': phi, 'Q': Q, 'lr_NN': lr_NN,'epochs_nn': p.epochs_nn, 'loss_par': loss_par, 'NN_par': NN_par, 'data_par': data_par, 'optimizer': p.optimizer}
 
 # Applying mobility to particles
-if p.mobility == 'bounded':
-    from util.construct_NN import bounded_relu  # mobility that bounding particles (For image data)
+#if p.mobility == 'bounded':
+#    from util.construct_NN import bounded_relu  # mobility that bounding particles (For image data)
         
 # Train setting
 lr_P_init = p.lr_P # Assume that deltat = deltat(t)
@@ -133,7 +133,9 @@ lr_Ps = []
 
 # Save & plot settings -----------------------------------------------
 # Metrics to calculate
-from util.evaluate_metric import calc_fid, calc_ke, calc_grad_phi
+from util.evaluate_metric import calc_ke, calc_grad_phi
+if "MNIST" in p.dataset or "CIFAR10" in p.dataset:
+    from util.evaluate_metric import calc_fid
 trajectories = []
 vectorfields = []
 divergences = []

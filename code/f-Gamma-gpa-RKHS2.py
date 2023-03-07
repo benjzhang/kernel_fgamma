@@ -83,10 +83,10 @@ def hess_loss(X_, Y_, Z_, alpha):
     return k(Z_, X_) @ np.diag(f_star_2prime(k(X_, Z_)@alpha)) @ k(X_, Z_)/N_samples_Q - hess_penalty
     
 def Newton(alpha, lr_NN, grad, hess):
-    #print(np.linalg.eigvals(np.linalg.inv(hess_loss(X_, Y_, alpha))))
     return alpha - lr_NN*np.linalg.inv(hess) @ grad
     
 def BFGS(alpha, lr_phi, grad, B_inv, X_, Y_, Z_):
+    print("Eigenvalues of inverse hessian:", np.linalg.eigvals(B_inv))
     p_k = - B_inv @ grad
     s_k = lr_phi * p_k
     alpha = alpha + s_k
@@ -116,7 +116,7 @@ def grad_loss_first_variation(y, Z_, alpha):
     return grad_k(y, Z_) @ alpha
 
 # ODE solver setting
-from util.transport_particles import calc_vectorfield, solve_ode
+#from util.transport_particles import calc_vectorfield, solve_ode
 dPs = []
 if p.ode_solver in ['forward_euler', 'AB2', 'AB3', 'AB4', 'AB5']:
     aux_params = []
@@ -124,8 +124,8 @@ else:
     aux_params = {'parameters': parameters, 'phi': phi, 'Q': Q, 'lr_NN': lr_NN,'epochs_nn': p.epochs_nn, 'loss_par': loss_par, 'NN_par': NN_par, 'data_par': data_par, 'optimizer': p.optimizer}
 
 # Applying mobility to particles
-if p.mobility == 'bounded':
-    from util.construct_NN import bounded_relu  # mobility that bounding particles (For image data)
+#if p.mobility == 'bounded':
+    #from util.construct_NN import bounded_relu  # mobility that bounding particles (For image data)
         
 # Train setting
 lr_P_init = p.lr_P # Assume that deltat = deltat(t)
@@ -140,7 +140,9 @@ lr_Ps = []
 
 # Save & plot settings -----------------------------------------------
 # Metrics to calculate
-from util.evaluate_metric import calc_fid, calc_ke, calc_grad_phi
+from util.evaluate_metric import calc_ke, calc_grad_phi
+if "MNIST" in p.dataset or "CIFAR10" in p.dataset:
+    from util.evaluate_metric import calc_fid
 trajectories = []
 vectorfields = []
 divergences = []
@@ -188,7 +190,7 @@ for it in range(1, p.epochs+1): # Loop for updating particles P
     X_idx_for_Z_ = np.random.choice(p.N_samples_Q, int(p.N_samples_Q/2), replace=False)
     Y_idx_for_Z_ = np.random.choice(p.N_samples_P, int(p.N_samples_P/2), replace=False)
     Z_ = np.vstack((X_[X_idx_for_Z_], Y_[Y_idx_for_Z_]))
-    print(f_star_2prime(k(X_, Z_)@alpha), alpha)
+    #print(f_star_2prime(k(X_, Z_)@alpha), alpha)
     for in_it in range(p.epochs_phi):
         grad = grad_loss(X_, Y_, Z_, alpha)
         if p.optimizer == 'Newton':
