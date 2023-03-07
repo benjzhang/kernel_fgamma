@@ -27,23 +27,10 @@ else:
 from util.generate_data import generate_data
 # X_ ~ Q, Y_ ~ P_0
 p, X_, Y_, X_label, Y_label = generate_data(p)
-       
-
-# (Discriminator) Loss ----------------------------------------------
-if p.f == "KL":
-    f = lambda x: x * np.log(x)
-    f_prime = lambda x: np.log(x) + 1
-    f_2prime = lambda x: 1/x
-    f_star = lambda x: np.exp(x - 1)
-elif p.f == 'alpha':
-    f = lambda x: (x**p.alpha - 1)/(p.alpha*(p.alpha-1))
-    f_prime = lambda x: x**(p.alpha-1)/(p.alpha-1)
-    f_2prime = lambda x: x**(p.alpha-2)
-    f_star = lambda x: 1/p.alpha*(1/(p.alpha-1) + ((p.alpha-1)*np.maximum(x,0))**(p.alpha/(p.alpha-1)))
 
 
 # Discriminator learning  -----------------------------------------
-# Discriminator construction using RKHS
+# kernel for RKHS
 def gaussian_kernel(x, y, bandwidth):
     return np.exp(-np.sum(((x-y)/bandwidth)**2)/2)
     
@@ -55,6 +42,19 @@ def kernel(X_, Y_, bandwidth=1):
     return res
     
 k = partial(kernel, bandwidth=p.bandwidth)
+
+
+# (Discriminator) Loss
+if p.f == "KL":
+    f = lambda x: x * np.log(x)
+    f_prime = lambda x: np.log(x) + 1
+    f_2prime = lambda x: 1/x
+    f_star = lambda x: np.exp(x - 1)
+elif p.f == 'alpha':
+    f = lambda x: (x**p.alpha - 1)/(p.alpha*(p.alpha-1))
+    f_prime = lambda x: x**(p.alpha-1)/(p.alpha-1)
+    f_2prime = lambda x: x**(p.alpha-2)
+    f_star = lambda x: 1/p.alpha*(1/(p.alpha-1) + ((p.alpha-1)*np.maximum(x,0))**(p.alpha/(p.alpha-1)))
     
 def loss(X_, Y_, alpha, lamda):
 # loss = \sum_i alpha_i f'(n*alpha_i) - \sum_i f^*(f'(n*alpha_i))/n +
@@ -74,9 +74,9 @@ def hess_loss(X_, Y_, alpha):
     n = X_.shape[0]
     return np.diag(n*f_2prime(n*alpha)) + k(X_, X_)/(2*p.lamda)
     
-def Newton(alpha, lr_NN, grad, hess):
+def Newton(alpha, lr_phi, grad, hess):
     #print(np.linalg.eigvals(np.linalg.inv(hess_loss(X_, Y_, alpha))))
-    return alpha - lr_NN*np.linalg.inv(hess) @ grad
+    return alpha - lr_phi*np.linalg.inv(hess) @ grad
     
 def BFGS(alpha, lr_phi, grad, B_inv, X_, Y_):
     p_k = - B_inv @ grad
@@ -114,7 +114,7 @@ dPs = []
 if p.ode_solver in ['forward_euler', 'AB2', 'AB3', 'AB4', 'AB5']:
     aux_params = []
 else:
-    aux_params = {'parameters': parameters, 'phi': phi, 'Q': Q, 'lr_NN': lr_NN,'epochs_nn': p.epochs_nn, 'loss_par': loss_par, 'NN_par': NN_par, 'data_par': data_par, 'optimizer': p.optimizer}
+    aux_params = {'parameters': parameters, 'phi': phi, 'Q': Q, 'lr_phi': lr_phi,'epochs_nn': p.epochs_nn, 'loss_par': loss_par, 'NN_par': NN_par, 'data_par': data_par, 'optimizer': p.optimizer}
 
 # Applying mobility to particles
 #if p.mobility == 'bounded':

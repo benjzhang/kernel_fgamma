@@ -29,6 +29,21 @@ from util.generate_data import generate_data
 p, X_, Y_, X_label, Y_label = generate_data(p)
        
 
+
+# Discriminator learning  -----------------------------------------
+# kernel for RKHS
+def gaussian_kernel(x, y, bandwidth):
+    return np.exp(-np.sum(((x-y)/bandwidth)**2)/2)
+    
+def kernel(X_, Y_, bandwidth=1):
+    res = np.zeros((X_.shape[0],Y_.shape[0]))
+    for i, x in enumerate(X_):
+        for j, y in enumerate(Y_):
+            res[i,j] = gaussian_kernel(x, y, bandwidth=bandwidth)
+    return res
+    
+k = partial(kernel, bandwidth=p.bandwidth)
+
 # (Discriminator) Loss ----------------------------------------------
 if p.f == "KL":
     f = lambda x: x * np.log(x)
@@ -42,20 +57,6 @@ elif p.f == 'alpha':
     f_star_2prime = lambda x: 1/(p.alpha-1)*x**(1/(p.alpha-1)-1)
 
 
-# Discriminator learning  -----------------------------------------
-# Discriminator construction using RKHS
-def gaussian_kernel(x, y, bandwidth):
-    return np.exp(-np.sum(((x-y)/bandwidth)**2)/2)
-    
-def kernel(X_, Y_, bandwidth=1):
-    res = np.zeros((X_.shape[0],Y_.shape[0]))
-    for i, x in enumerate(X_):
-        for j, y in enumerate(Y_):
-            res[i,j] = gaussian_kernel(x, y, bandwidth=bandwidth)
-    return res
-    
-k = partial(kernel, bandwidth=p.bandwidth)
-    
 def loss(X_, Y_, Z_, alpha, lamda):
 # loss = \sum_i alpha_i f'(n*alpha_i) - \sum_i f^*(f'(n*alpha_i))/n +
 #        1/2* (\sum_i \sum_j k(Y_i, Y_j)/n^2 - 2/n* alpha_i * k(X_i, Y_j) + alpha_i*alpha_j * K(X_i, X_j)
@@ -81,12 +82,15 @@ def hess_loss(X_, Y_, Z_, alpha):
         hess_penalty =  - k(Z_, Z_)
     
     return k(Z_, X_) @ np.diag(f_star_2prime(k(X_, Z_)@alpha)) @ k(X_, Z_)/N_samples_Q - hess_penalty
+ 
+def Gradient_Aescent(alpha, lr_phi, grad):
+    return alpha + lr_phi*grad
     
-def Newton(alpha, lr_NN, grad, hess):
-    return alpha - lr_NN*np.linalg.inv(hess) @ grad
+def Newton(alpha, lr_phi, grad, hess):
+    return alpha - lr_phi*np.linalg.inv(hess) @ grad
     
 def BFGS(alpha, lr_phi, grad, B_inv, X_, Y_, Z_):
-    print("Eigenvalues of inverse hessian:", np.linalg.eigvals(B_inv))
+    #print("Eigenvalues of inverse hessian:", np.linalg.eigvals(B_inv))
     p_k = - B_inv @ grad
     s_k = lr_phi * p_k
     alpha = alpha + s_k
@@ -121,7 +125,7 @@ dPs = []
 if p.ode_solver in ['forward_euler', 'AB2', 'AB3', 'AB4', 'AB5']:
     aux_params = []
 else:
-    aux_params = {'parameters': parameters, 'phi': phi, 'Q': Q, 'lr_NN': lr_NN,'epochs_nn': p.epochs_nn, 'loss_par': loss_par, 'NN_par': NN_par, 'data_par': data_par, 'optimizer': p.optimizer}
+    aux_params = {'parameters': parameters, 'phi': phi, 'Q': Q, 'lr_phi': lr_phi,'epochs_nn': p.epochs_nn, 'loss_par': loss_par, 'NN_par': NN_par, 'data_par': data_par, 'optimizer': p.optimizer}
 
 # Applying mobility to particles
 #if p.mobility == 'bounded':
@@ -185,7 +189,7 @@ elif p.N_dim == 2:#'2D' in p.dataset:
 import time 
 t0 = time.time()
 
-alpha = -10*np.ones(int(p.N_samples_Q/2)+int(p.N_samples_P/2))
+alpha = np.zeros(int(p.N_samples_Q/2)+int(p.N_samples_P/2))
 for it in range(1, p.epochs+1): # Loop for updating particles P
     X_idx_for_Z_ = np.random.choice(p.N_samples_Q, int(p.N_samples_Q/2), replace=False)
     Y_idx_for_Z_ = np.random.choice(p.N_samples_P, int(p.N_samples_P/2), replace=False)
@@ -193,12 +197,16 @@ for it in range(1, p.epochs+1): # Loop for updating particles P
     #print(f_star_2prime(k(X_, Z_)@alpha), alpha)
     for in_it in range(p.epochs_phi):
         grad = grad_loss(X_, Y_, Z_, alpha)
-        if p.optimizer == 'Newton':
+        if p.optimizer == 'Gradient_Ascent':
+            alpha = Gradient_Aescent(alpha, p.lr_phi, grad)
+        elif p.optimizer == 'Newton':
             hess = hess_loss(X_, Y_, Z_, alpha)
             alpha = Newton(alpha, p.lr_phi, grad, hess)
         elif p.optimizer == 'BFGS':
             if in_it == 0:
-                hess = hess_loss(X_, Y_, Z_, alpha)
+                #hess = hess_loss(X_, Y_, Z_, alpha)
+                #print("Eigenvalues of hessian:", np.linalg.eigvals(hess))
+                hess = np.identity(len(alpha))
                 B_inv = np.linalg.inv(hess)
                 alpha, B_inv = BFGS(alpha, p.lr_phi, grad, B_inv, X_, Y_, Z_)
     current_loss = loss(X_, Y_, Z_, alpha, p.lamda)
