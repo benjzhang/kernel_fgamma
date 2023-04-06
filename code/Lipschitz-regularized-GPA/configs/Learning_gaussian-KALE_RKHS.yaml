@@ -1,0 +1,64 @@
+# configuration for Learning_gaussian example
+# whose discriminator is parametrized by RKHS
+# null converts to None in Python
+---
+# Data
+N_samples_Q: 50        # total number of target samples
+N_samples_P: 50        # total number of prior samples
+N_dim: 2                # dimension of input data
+dataset: Learning_gaussian
+random_seed: 0          # random seed for data generator
+
+N_latent_dim: null      # dimension of latent space
+sample_latent: False    # True: sample in the latent space, False: sample in the physical space
+
+N_project_dim: null     # dimension of PCA projected space on input
+
+beta: null              # gibbs distribution of -|x|^\beta
+sigma_P: 0.5            # std of initial gaussian distribution
+sigma_Q: 1.0            # std of target gaussian distribution
+nu: null                # df of target student-t distribution
+interval_length: null   # interval length of the uniform distribution
+label: null             # class label of image data
+pts_P: null             # x-coordinate value of points ex) [10.0,]
+pts_Q: null             # x-coordinate value of points ex) [0.0,]
+pts_P_2: null           # y-coordinate value of points ex) [0.0,]
+pts_Q_2: null           # y-coordinate value of points ex) [0.0,]
+y0: null                # Lorenz equation initial value ex) [1.0,2.0, 2.0]
+
+# (f, Gamma)-divergence
+f: KL                   # choices=['KL', 'alpha', 'reverse_KL', 'JS']
+alpha: null             # parameter value for alpha divergence
+formulation: DV         # LT or DV in case of f=KL, otherwise, keep LT
+Gamma: Lipschitz        # function space choices=['Lipshitz']
+L: 1.0                  # Lipshitz constant: default=inf w/o constraint
+reverse: False          # True -> D(Q|P), False -> D(P|Q)
+constraint: soft        # choices=['hard', 'soft']
+lamda: 0.01             # coefficient on soft constraint
+phi_model: GPA_RKHS     # the function space to parametrize the discriminator phi
+
+# RKHS <phi>
+kernel: gaussian        # RKHS kernel, choices=['gaussian']
+bandwidth: 20.0          # gaussian kernel bandwidth
+
+# Discriminator training parameters
+epochs_phi: 5           # number of updates for RKHS to find phi*
+lr_phi: 0.005           # lr for NN
+optimizer: BFGS         # optimizer for RKHS, choices=['Newton', 'BFGS', 'Gradient_Ascent']
+
+# Particles transportation parameters
+epochs: 300             # number of updates for P
+lr_P: 0.05              # lr for P
+ode_solver: forward_euler   # ode solver for particle ode, choices=['forward_euler', 'AB2', 'AB3', 'AB4', 'AB5', 'ABM1', 'Heun', 'ABM2', 'ABM3', 'ABM4', 'ABM5', 'RK4', 'ode45' ]
+mobility: null          # problem dependent mobility function\nRecommendation: MNIST - bounded
+lr_P_decay: null        # delta t decay, choices=['rational', 'step',]
+
+exp_no: rkhs_trial      # short experiment name under the same data
+mb_size_P: 50           # mini batch size for the moving distribution P
+mb_size_Q: 50           # mini batch size for the target distribution Q
+
+# save/display
+save_iter: 10           # save results per each save_iter
+plot_result: True       # True -> show plots
+plot_intermediate_result: False # True -> save intermediate plots
+...
